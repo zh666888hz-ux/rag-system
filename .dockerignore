@@ -1,0 +1,27 @@
+# Docker 构建上下文排除项：避免把本地环境/数据/密钥打进镜像
+.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.git
+.gitignore
+logs
+qdrant_data
+models
+*.log
+.env
+demo_api.py
+Dockerfile
+Dockerfile.webapp
+docker-compose.yml
+README.md
+schema.sql
+# 本机部署辅助大文件与脚本（不入镜像，也不应进构建上下文）
+*.tar
+pull_tmp/
+mirror_pull.py
+mirror_probe*.py
+mirror_scan.py
+manifest_debug.py
+daocloud_probe.py
+make_test_pdf.py

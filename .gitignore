@@ -1,0 +1,30 @@
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.venv/
+venv/
+.pytest_cache/
+
+# ---------- 运行时产物 ----------
+logs/
+*.log
+qdrant_data/
+models/
+
+# ---------- 环境与密钥（禁止入库） ----------
+.env
+
+# ---------- 容器 / 镜像 ----------
+*.tar
+pull_tmp/
+
+# ---------- 个人文件（简历等，不入库） ----------
+resume_build/
+
+# ---------- 系统与临时 ----------
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.msi

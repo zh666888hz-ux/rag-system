@@ -1,0 +1,42 @@
+# ============================================================
+# RAG 工程依赖清单
+# 安装：pip install -r requirements.txt
+# ============================================================
+
+# ---------- RAG 核心（LangChain 生态） ----------
+langchain>=0.3.7,<0.4
+langchain-community>=0.3.0
+langchain-openai>=0.2.0        # OpenAI 兼容 API 的 LLM / Embedding 封装
+langchain-qdrant>=0.2.0        # Qdrant 向量库的 LangChain 集成
+langchain-text-splitters>=0.3.0
+
+# ---------- 向量数据库 ----------
+qdrant-client>=1.10.0          # Qdrant 客户端（支持远程/本地两种模式）
+
+# ---------- PDF 解析 ----------
+pypdf>=4.0.0                   # 纯 Python PDF 文本抽取
+
+# ---------- 本地 Embedding（可选，离线免费） ----------
+# 用于 embedding_provider=local_fastembed 模式；基于 ONNX 运行时，无需 GPU/大体积 torch
+fastembed>=0.3.0
+
+# ---------- 混合检索与重排 ----------
+rank_bm25>=0.2.2               # BM25 关键词检索（与向量检索做 RRF 混合召回）
+jieba>=0.42.1                  # 中文分词（BM25 的 term 切分）
+transformers>=4.40             # 重排模型 tokenizer（ONNX 推理走 onnxruntime，不引入 torch）
+
+# ---------- 配置与校验 ----------
+pydantic>=2.6.0
+pydantic-settings>=2.2.0       # 从环境变量/.env 读取配置并做类型校验
+python-dotenv>=1.0.0
+
+# ---------- 测试 ----------
+pytest>=8.0.0
+
+# ---------- HTTP API / 用户会话 / JWT ----------
+fastapi>=0.110.0               # REST API 框架（路由/依赖注入/自动文档）
+uvicorn[standard]>=0.29.0      # ASGI 服务器
+PyJWT>=2.8.0                   # JWT 令牌签发与校验
+SQLAlchemy>=2.0.25             # ORM：MySQL 表映射与连接池管理
+PyMySQL>=1.1.0                 # MySQL 驱动（纯 Python）
+cryptography>=42.0.0           # MySQL8 caching_sha2_password 认证支持

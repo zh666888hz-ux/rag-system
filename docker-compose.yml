@@ -1,0 +1,114 @@
+# ============================================================
+# RAG 一键部署编排：MySQL + Qdrant + API + Web（Streamlit）
+#
+# 使用：
+#   1. 复制 .env.example 为 .env（本地已含真实值），或直接设置环境变量
+#   2. docker compose up -d --build
+#   3. 访问 http://localhost:8501（前端）/ http://localhost:8000/docs（API 文档）
+#
+# 敏感配置通过 .env（RAG_*）注入，.env 已被 .dockerignore 排除、不打进镜像。
+# ============================================================
+name: rag
+
+services:
+  # ---------- MySQL：用户/会话/聊天历史 ----------
+  mysql:
+    image: mysql:8.0
+    container_name: rag-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-your_mysql_root_password}
+      MYSQL_DATABASE: rag_chat
+      TZ: Asia/Shanghai
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-your_mysql_root_password}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  # ---------- Qdrant：向量数据库 ----------
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: rag-qdrant
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  # ---------- RAG API（FastAPI + LangChain + 本地模型） ----------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-api
+    environment:
+      # OpenAI 兼容网关（DeepSeek 等，从宿主 .env 透传）
+      RAG_OPENAI_BASE_URL: ${RAG_OPENAI_BASE_URL:-https://api.deepseek.com/v1}
+      RAG_OPENAI_API_KEY: ${RAG_OPENAI_API_KEY:?请在 .env 设置 RAG_OPENAI_API_KEY}
+      RAG_CHAT_MODEL: ${RAG_CHAT_MODEL:-deepseek-v4-flash}
+      # 本地 Embedding（离线免费，容器内首次启动自动下载）
+      RAG_EMBEDDING_PROVIDER: local_fastembed
+      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-BAAI/bge-small-zh-v1.5}
+      RAG_VECTOR_SIZE: "512"
+      # Qdrant 走容器内网
+      RAG_QDRANT_URL: http://qdrant:6333
+      # MySQL 走容器内网（库表由应用启动自动创建）
+      RAG_MYSQL_HOST: mysql
+      RAG_MYSQL_PORT: "3306"
+      RAG_MYSQL_USER: root
+      RAG_MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-your_mysql_root_password}
+      RAG_MYSQL_DB: rag_chat
+      # 混合检索 + 重排
+      RAG_RETRIEVAL_MODE: ${RAG_RETRIEVAL_MODE:-hybrid}
+      RAG_ENABLE_RERANK: "true"
+      RAG_RERANK_PROVIDER: local_onnx
+      RAG_RERANK_MODEL: Xenova/bge-reranker-base
+      # JWT
+      RAG_JWT_SECRET: ${RAG_JWT_SECRET:-rag-chat-docker-secret-change-me}
+      RAG_JWT_EXPIRE_MINUTES: "1440"
+      # 模型下载镜像与协议兼容
+      HF_ENDPOINT: https://hf-mirror.com
+      HF_HUB_DISABLE_XET: "1"
+      RAG_API_HOST: 0.0.0.0
+      RAG_API_PORT: "8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - model_cache:/app/models      # 模型缓存（避免每次重启重新下载）
+      - rag_logs:/app/logs           # 日志持久化
+      - ./docs:/app/docs:ro          # 待索引知识文档（宿主 docs 目录，只读挂载）
+    depends_on:
+      mysql:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------- Web（Streamlit 聊天前端） ----------
+  webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile.webapp
+    container_name: rag-webapp
+    environment:
+      API_BASE_URL: http://api:8000/api
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  qdrant_data:
+  model_cache:
+  rag_logs:
